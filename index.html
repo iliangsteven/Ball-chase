@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ball Chase!</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #fef9f0; font-family: 'Nunito', sans-serif; overflow: hidden; height: 100vh; width: 100vw; }
+
+  #menu {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: linear-gradient(160deg, #fff8e7 0%, #fde8c8 100%);
+    z-index: 100; gap: 18px;
+  }
+  #menu h1 {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(2.5rem, 8vw, 5rem);
+    color: #d45c00; text-shadow: 3px 4px 0 #f5c68a;
+    letter-spacing: 2px; animation: bounce 1.4s ease-in-out infinite;
+  }
+  @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+  #menu .emoji-row { font-size: 3rem; }
+  #menu p { font-size: 1.1rem; color: #7a5230; max-width: 360px; text-align: center; line-height: 1.6; }
+  .diff-label { font-family: 'Fredoka One', cursive; font-size: 1.1rem; color: #7a5230; margin-bottom: 2px; }
+  .diff-btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .diff-btn {
+    padding: 10px 18px; border: 3px solid #e8c88a; border-radius: 50px;
+    font-family: 'Fredoka One', cursive; font-size: 1rem; cursor: pointer;
+    transition: all 0.15s; background: #fff; color: #7a5230;
+  }
+  .diff-btn:hover, .diff-btn.selected { transform: scale(1.08); }
+  .diff-btn[data-d="veryeasy"].selected { background: #b0f0ff; border-color: #40b0d0; color: #004a5c; }
+  .diff-btn[data-d="easy"].selected    { background: #a8e063; border-color: #6db832; color: #2a5c00; }
+  .diff-btn[data-d="medium"].selected  { background: #ffd36b; border-color: #c99500; color: #5c3c00; }
+  .diff-btn[data-d="hard"].selected    { background: #ff7070; border-color: #c92020; color: #5c0000; }
+  .diff-btn[data-d="insane"].selected  { background: #1a1a2e; border-color: #9000ff; color: #df80ff; }
+  .diff-btn[data-d="freeplay"].selected { background: #e8f0ff; border-color: #5080ff; color: #002080; }
+  #start-btn {
+    padding: 14px 48px; background: #d45c00; color: #fff; border: none;
+    border-radius: 50px; font-family: 'Fredoka One', cursive; font-size: 1.4rem;
+    cursor: pointer; box-shadow: 0 6px 0 #a03c00; transition: all 0.12s;
+  }
+  #start-btn:hover { transform: translateY(-3px); box-shadow: 0 9px 0 #a03c00; }
+  #start-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #a03c00; }
+
+  canvas { display: block; position: fixed; inset: 0; }
+
+  #hud {
+    position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+    display: none; gap: 24px; align-items: center;
+    background: rgba(255,255,255,0.85); backdrop-filter: blur(6px);
+    padding: 8px 24px; border-radius: 50px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    font-family: 'Fredoka One', cursive; font-size: 1.3rem; color: #7a5230; z-index: 10;
+    white-space: nowrap; width: max-content;
+  }
+  #hud span { color: #d45c00; display: inline-block; min-width: 2.5ch; text-align: left; }
+
+  #trophy-counter {
+    position: fixed; top: 16px; left: 16px;
+    background: rgba(255,255,255,0.85); backdrop-filter: blur(6px);
+    padding: 8px 18px; border-radius: 50px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    font-family: 'Fredoka One', cursive; font-size: 1.3rem; color: #7a5230; z-index: 110;
+    cursor: pointer; transition: transform 0.1s;
+  }
+  #trophy-counter:hover { transform: scale(1.05); }
+  #trophy-counter span { color: #d4a000; }
+  .trophy { display: inline-block; }
+  .trophy-veryeasy { color: #40b0d0; }
+  .trophy-easy     { color: #4a9900; }
+  .trophy-medium   { color: #d4a000; }
+  .trophy-hard     { color: #cc2020; }
+  .trophy-insane   { color: #111; -webkit-text-stroke: 1px #666; }
+
+  #trophy-cabinet {
+    position: fixed; inset: 0; display: none;
+    flex-direction: column; align-items: center; justify-content: center;
+    background: linear-gradient(160deg, #1a0a00 0%, #3d1f00 100%);
+    z-index: 300; gap: 24px;
+  }
+  .trophy-row .t-icon { font-size: 2rem; line-height: 1; }
+  .t-svg { width: 36px; height: 36px; display: inline-block; }
+
+  #trophy-cabinet h2 {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(2rem, 6vw, 3.5rem);
+    color: #ffd36b; text-shadow: 2px 3px 0 #a06000;
+  }
+  .trophy-rows { display: flex; flex-direction: column; gap: 16px; width: 320px; }
+  .trophy-row {
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(255,255,255,0.07); border-radius: 16px;
+    padding: 14px 24px; font-family: 'Fredoka One', cursive; font-size: 1.4rem;
+  }
+  .trophy-row .t-label { color: #fff; font-size: 1.1rem; }
+  .trophy-row .t-icon { font-size: 2rem; }
+  .trophy-row .t-count { font-size: 1.6rem; }
+  #close-cabinet {
+    padding: 12px 40px; background: #d45c00; color: #fff; border: none;
+    border-radius: 50px; font-family: 'Fredoka One', cursive; font-size: 1.3rem;
+    cursor: pointer; box-shadow: 0 5px 0 #a03c00; transition: all 0.12s;
+  }
+  #close-cabinet:hover { transform: translateY(-3px); box-shadow: 0 8px 0 #a03c00; }
+
+  #gameover {
+    position: fixed; inset: 0; display: none;
+    flex-direction: column; align-items: center; justify-content: center;
+    background: rgba(254,249,240,0.92); backdrop-filter: blur(8px); z-index: 200; gap: 16px;
+  }
+  #gameover h2 { font-family: 'Fredoka One', cursive; font-size: clamp(2rem,6vw,3.5rem); color: #d45c00; text-shadow: 2px 3px 0 #f5c68a; }
+  #gameover .final { font-size: 1.3rem; color: #7a5230; }
+  #gameover .final span { font-family: 'Fredoka One', cursive; color: #d45c00; font-size: 1.8rem; }
+  #restart-btn {
+    padding: 12px 40px; background: #d45c00; color: #fff; border: none;
+    border-radius: 50px; font-family: 'Fredoka One', cursive; font-size: 1.3rem;
+    cursor: pointer; box-shadow: 0 5px 0 #a03c00; transition: all 0.12s;
+  }
+  #restart-btn:hover { transform: translateY(-3px); box-shadow: 0 8px 0 #a03c00; }
+
+  #caught-flash {
+    position: fixed; inset: 0; background: rgba(212,92,0,0.25);
+    pointer-events: none; opacity: 0; z-index: 50; transition: opacity 0.1s;
+  }
+</style>
+</head>
+<body>
+
+<div id="menu">
+  <div class="emoji-row">🐕 🟢</div>
+  <h1>Ball Chase!</h1>
+  <p>Drag or use <strong>W A S D</strong> to move the ball. Collect 🟢 green balls for points — but don't let the dog catch you!</p>
+  <div class="diff-label">Pick a difficulty</div>
+  <div class="diff-btns">
+    <button class="diff-btn" data-d="veryeasy">🐢 Very Easy</button>
+    <button class="diff-btn" data-d="easy">🐾 Easy</button>
+    <button class="diff-btn selected" data-d="medium">🐕 Medium</button>
+    <button class="diff-btn" data-d="hard">🔥 Hard</button>
+    <button class="diff-btn" data-d="insane">💀 Insane</button>
+    <button class="diff-btn" data-d="freeplay">🌟 Free Play</button>
+  </div>
+  <button id="start-btn">Let's Play!</button>
+</div>
+
+<canvas id="c"></canvas>
+<div id="trophy-counter">🏆</div>
+
+<div id="trophy-cabinet">
+  <h2>🏆 Trophy Cabinet</h2>
+  <div class="trophy-rows">
+    <div class="trophy-row">
+      <span class="t-label">Very Easy</span>
+      <span class="t-icon"><svg class="t-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <rect x="35" y="80" width="30" height="8" rx="3" fill="#40b0d0" stroke="#1a7a99" stroke-width="3"/>
+      <rect x="25" y="88" width="50" height="8" rx="3" fill="#40b0d0" stroke="#1a7a99" stroke-width="3"/>
+      <path d="M20 10 h60 v35 a30 30 0 0 1 -60 0 Z" fill="#40b0d0" stroke="#1a7a99" stroke-width="3"/>
+      <path d="M20 20 Q5 20 5 40 Q5 58 20 55" fill="none" stroke="#40b0d0" stroke-width="10" stroke-linecap="round"/>
+      <path d="M80 20 Q95 20 95 40 Q95 58 80 55" fill="none" stroke="#40b0d0" stroke-width="10" stroke-linecap="round"/>
+      <path d="M20 20 Q5 20 5 40 Q5 58 20 55" fill="none" stroke="#1a7a99" stroke-width="3" stroke-linecap="round"/>
+      <path d="M80 20 Q95 20 95 40 Q95 58 80 55" fill="none" stroke="#1a7a99" stroke-width="3" stroke-linecap="round"/>
+      <line x1="50" y1="72" x2="50" y2="80" stroke="#1a7a99" stroke-width="3"/>
+    </svg></span>
+      <span class="t-count" id="tc-veryeasy" style="color:#40b0d0">0</span>
+    </div>
+    <div class="trophy-row">
+      <span class="t-label">Easy</span>
+      <span class="t-icon"><svg class="t-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <rect x="35" y="80" width="30" height="8" rx="3" fill="#4abf20" stroke="#2a7a00" stroke-width="3"/>
+      <rect x="25" y="88" width="50" height="8" rx="3" fill="#4abf20" stroke="#2a7a00" stroke-width="3"/>
+      <path d="M20 10 h60 v35 a30 30 0 0 1 -60 0 Z" fill="#4abf20" stroke="#2a7a00" stroke-width="3"/>
+      <path d="M20 20 Q5 20 5 40 Q5 58 20 55" fill="none" stroke="#4abf20" stroke-width="10" stroke-linecap="round"/>
+      <path d="M80 20 Q95 20 95 40 Q95 58 80 55" fill="none" stroke="#4abf20" stroke-width="10" stroke-linecap="round"/>
+      <path d="M20 20 Q5 20 5 40 Q5 58 20 55" fill="none" stroke="#2a7a00" stroke-width="3" stroke-linecap="round"/>
+      <path d="M80 20 Q95 20 95 40 Q95 58 80 55" fill="none" stroke="#2a7a00" stroke-width="3" stroke-linecap="round"/>
+      <line x1="50" y1="72" x2="50" y2="80" stroke="#2a7a00" stroke-width="3"/>
+    </svg></span>
+      <span class="t-count" id="tc-easy" style="color:#4abf20">0</span>
+    </div>
+    <div class="trophy-row">
+      <span class="t-label">Medium</span>
+      <span class="t-icon"><svg class="t-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <rect x="35" y="80" width="30" height="8" rx="3" fill="#ffd36b" stroke="#b07800" stroke-width="3"/>
+      <rect x="25" y="88" width="50" height="8" rx="3" fill="#ffd36b" stroke="#b07800" stroke-width="3"/>
+      <path d="M20 10 h60 v35 a30 30 0 0 1 -60 0 Z" fill="#ffd36b" stroke="#b07800" stroke-width="3"/>
+      <path d="M20 20 Q5 20 5 40 Q5 58 20 55" fill="none" stroke="#ffd36b" stroke-width="10" stroke-linecap="round"/>
+      <path d="M80 20 Q95 20 95 40 Q95 58 80 55" fill="none" stroke="#ffd36b" stroke-width="10" stroke-linecap="round"/>
+      <path d="M20 20 Q5 20 5 40 Q5 58 20 55" fill="none" stroke="#b07800" stroke-width="3" stroke-linecap="round"/>
+      <path d="M80 20 Q95 20 95 40 Q95 58 80 55" fill="none" stroke="#b07800" stroke-width="3" stroke-linecap="round"/>
+      <line x1="50" y1="72" x2="50" y2="80" stroke="#b07800" stroke-width="3"/>
+    </svg></span>
+      <span class="t-count" id="tc-medium" style="color:#ffd36b">0</span>
+    </div>
+    <div class="trophy-row">
+      <span class="t-label">Hard</span>
+      <span class="t-icon"><svg class="t-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <rect x="35" y="80" width="30" height="8" rx="3" fill="#ff5050" stroke="#aa0000" stroke-width="3"/>
+      <rect x="25" y="88" width="50" height="8" rx="3" fill="#ff5050" stroke="#aa0000" stroke-width="3"/>
+      <path d="M20 10 h60 v35 a30 30 0 0 1 -60 0 Z" fill="#ff5050" stroke="#aa0000" stroke-width="3"/>
+      <path d="M20 20 Q5 20 5 40 Q5 58 20 55" fill="none" stroke="#ff5050" stroke-width="10" stroke-linecap="round"/>
+      <path d="M80 20 Q95 20 95 40 Q95 58 80 55" fill="none" stroke="#ff5050" stroke-width="10" stroke-linecap="round"/>
+      <path d="M20 20 Q5 20 5 40 Q5 58 20 55" fill="none" stroke="#aa0000" stroke-width="3" stroke-linecap="round"/>
+      <path d="M80 20 Q95 20 95 40 Q95 58 80 55" fill="none" stroke="#aa0000" stroke-width="3" stroke-linecap="round"/>
+      <line x1="50" y1="72" x2="50" y2="80" stroke="#aa0000" stroke-width="3"/>
+    </svg></span>
+      <span class="t-count" id="tc-hard" style="color:#ff5050">0</span>
+    </div>
+    <div class="trophy-row">
+      <span class="t-label">Insane</span>
+      <span class="t-icon"><svg class="t-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <rect x="35" y="80" width="30" height="8" rx="3" fill="#444444" stroke="#111111" stroke-width="3"/>
+      <rect x="25" y="88" width="50" height="8" rx="3" fill="#444444" stroke="#111111" stroke-width="3"/>
+      <path d="M20 10 h60 v35 a30 30 0 0 1 -60 0 Z" fill="#444444" stroke="#111111" stroke-width="3"/>
+      <path d="M20 20 Q5 20 5 40 Q5 58 20 55" fill="none" stroke="#444444" stroke-width="10" stroke-linecap="round"/>
+      <path d="M80 20 Q95 20 95 40 Q95 58 80 55" fill="none" stroke="#444444" stroke-width="10" stroke-linecap="round"/>
+      <path d="M20 20 Q5 20 5 40 Q5 58 20 55" fill="none" stroke="#111111" stroke-width="3" stroke-linecap="round"/>
+      <path d="M80 20 Q95 20 95 40 Q95 58 80 55" fill="none" stroke="#111111" stroke-width="3" stroke-linecap="round"/>
+      <line x1="50" y1="72" x2="50" y2="80" stroke="#111111" stroke-width="3"/>
+    </svg></span>
+      <span class="t-count" id="tc-insane" style="color:#444444">0</span>
+    </div>
+
+  </div>
+  <button id="close-cabinet">← Back</button>
+</div>
+<div id="hud">🟢 Score: <span id="score-val">0</span> &nbsp;|&nbsp; ⏱ <span id="time-val">60</span>s &nbsp;|&nbsp; 🐕 <span id="diff-val">Medium</span> &nbsp;|&nbsp; 🪤 <span id="trap-val">0</span></div>
+<div id="caught-flash"></div>
+
+<div id="gameover">
+  <div style="font-size:3rem" id="go-emoji">🐕💨🟢</div>
+  <h2 id="go-title">Game Over!</h2>
+  <div class="final">Final Score: <span id="final-score">0</span></div>
+  <button id="restart-btn">Play Again</button>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+let W, H;
+function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+resize();
+window.addEventListener('resize', resize);
+
+const DIFFS = {
+  veryeasy: { speed: 0.9, catchDist: 18, time: 120, bonusBalls: 3 },
+  easy:     { speed: 1.8, catchDist: 18, time: 90,  bonusBalls: 3 },
+  medium:   { speed: 2.8, catchDist: 18, time: 60,  bonusBalls: 4 },
+  hard:     { speed: 4.2, catchDist: 18, time: 45,  bonusBalls: 5 },
+  insane:   { speed: 7.0, catchDist: 18, time: 30,  bonusBalls: 6 },
+  freeplay: { speed: 2.0, catchDist: 18, time: null, bonusBalls: 4 },
+};
+
+let difficulty = 'medium';
+let gameRunning = false;
+let score = 0;
+let timeLeft = 60;
+let timerInterval = null;
+let trophies = { veryeasy:0, easy:0, medium:0, hard:0, insane:0 };
+
+function renderTrophies() {
+  for (const diff of Object.keys(trophies)) {
+    document.getElementById('tc-'+diff).textContent = trophies[diff];
+  }
+}
+
+document.getElementById('trophy-counter').addEventListener('click', () => {
+  document.getElementById('trophy-cabinet').style.display = 'flex';
+});
+document.getElementById('close-cabinet').addEventListener('click', () => {
+  document.getElementById('trophy-cabinet').style.display = 'none';
+});
+let ball, dog, bonusBalls;
+let keys = {};
+let dragging = false, dragOffX = 0, dragOffY = 0;
+let animFrame;
+let trapCharges = 0;
+let traps = [];
+let dogStuckUntil = 0;
+
+function initGame() {
+  const cfg = DIFFS[difficulty];
+  score = 0; timeLeft = cfg.time || 0;
+  ball = { x: W/2, y: H/2, r: 22 };
+  const edge = Math.floor(Math.random()*4);
+  dog = {
+    x: edge===0?0:edge===1?W:W/2,
+    y: edge===2?0:edge===3?H:H/2,
+    speed: cfg.speed, r: 28
+  };
+  bonusBalls = [];
+  for (let i=0; i<cfg.bonusBalls; i++) spawnBonus();
+  document.getElementById('score-val').textContent = '0';
+  trapCharges = 0;
+  traps = [];
+  dogStuckUntil = 0;
+  document.getElementById('trap-val').textContent = '0';
+  document.getElementById('time-val').textContent = difficulty === 'freeplay' ? '∞' : timeLeft;
+  document.getElementById('diff-val').textContent = difficulty.charAt(0).toUpperCase()+difficulty.slice(1);
+}
+
+function spawnBonus() {
+  const margin = 60, topMargin = 80;
+  bonusBalls.push({
+    x: margin + Math.random()*(W-margin*2),
+    y: topMargin + Math.random()*(H-topMargin-margin),
+    r: 10, pulse: Math.random()*Math.PI*2
+  });
+}
+
+window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+window.addEventListener('keyup',   e => keys[e.key.toLowerCase()] = false);
+canvas.addEventListener('mousedown', e => {
+  const dx=e.clientX-ball.x, dy=e.clientY-ball.y;
+  if (Math.hypot(dx,dy)<ball.r+10) { dragging=true; dragOffX=dx; dragOffY=dy; }
+  else if (gameRunning && trapCharges > 0) {
+    traps.push({ x: e.clientX, y: e.clientY, placed: Date.now() });
+    trapCharges--;
+    score = Math.max(0, score - 20);
+    document.getElementById('score-val').textContent = score;
+    document.getElementById('trap-val').textContent = trapCharges;
+  }
+});
+canvas.addEventListener('mousemove', e => { if(dragging){ball.x=e.clientX-dragOffX; ball.y=e.clientY-dragOffY;} });
+canvas.addEventListener('mouseup', () => dragging=false);
+canvas.addEventListener('touchstart', e => {
+  const t=e.touches[0], dx=t.clientX-ball.x, dy=t.clientY-ball.y;
+  if(Math.hypot(dx,dy)<ball.r+20){dragging=true;dragOffX=dx;dragOffY=dy;}
+},{passive:true});
+canvas.addEventListener('touchmove', e => {
+  if(dragging){const t=e.touches[0];ball.x=t.clientX-dragOffX;ball.y=t.clientY-dragOffY;}
+},{passive:true});
+canvas.addEventListener('touchend', () => dragging=false);
+
+function update() {
+  if (!gameRunning) return;
+  const speed = {veryeasy:4,easy:5,medium:5,hard:6,insane:9,freeplay:5}[difficulty];
+  if (!dragging) {
+    if (keys['w']||keys['arrowup'])    ball.y -= speed;
+    if (keys['s']||keys['arrowdown'])  ball.y += speed;
+    if (keys['a']||keys['arrowleft'])  ball.x -= speed;
+    if (keys['d']||keys['arrowright']) ball.x += speed;
+  }
+  ball.x = Math.max(ball.r, Math.min(W-ball.r, ball.x));
+  ball.y = Math.max(ball.r, Math.min(H-ball.r, ball.y));
+
+  // Check trap collisions
+  const now = Date.now();
+  if (now > dogStuckUntil) {
+    traps.forEach((t, i) => {
+      if (Math.hypot(dog.x - t.x, dog.y - t.y) < 30) {
+        dogStuckUntil = now + 7500;
+        traps.splice(i, 1);
+      }
+    });
+  }
+
+  const dx=ball.x-dog.x, dy=ball.y-dog.y, dist=Math.hypot(dx,dy);
+  const stuck = Date.now() < dogStuckUntil;
+  if (dist>0 && !stuck) { dog.x+=dx/dist*dog.speed; dog.y+=dy/dist*dog.speed; }
+
+  if (Math.hypot(ball.x-dog.x, ball.y-dog.y) < DIFFS[difficulty].catchDist+ball.r) {
+    endGame(false); return;
+  }
+
+  bonusBalls.forEach((b,i) => {
+    b.pulse += 0.08;
+    if (Math.hypot(ball.x-b.x, ball.y-b.y) < ball.r+b.r+4) {
+      score++;
+      document.getElementById('score-val').textContent = score;
+      if (score % 20 === 0) {
+        trapCharges++;
+        document.getElementById('trap-val').textContent = trapCharges;
+      }
+      bonusBalls.splice(i,1);
+      spawnBonus();
+    }
+  });
+}
+
+function drawGrass() {
+  ctx.fillStyle='#c8e6a0'; ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='rgba(160,210,80,0.35)'; ctx.lineWidth=1;
+  for(let x=0;x<W;x+=60){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=0;y<H;y+=60){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+}
+
+function drawDog() {
+  const x=dog.x, y=dog.y;
+  ctx.save();
+  if (ball.x < dog.x) { ctx.translate(x,y); ctx.scale(-1,1); ctx.translate(-x,-y); }
+
+  const c='#c68642', cd='#8b5e2e';
+  const wag = Math.sin(Date.now()/150)*0.6;
+
+  // Shadow
+  ctx.beginPath(); ctx.ellipse(x,y+24,22,8,0,0,Math.PI*2);
+  ctx.fillStyle='rgba(0,0,0,0.13)'; ctx.fill();
+
+  // Tail
+  ctx.save(); ctx.translate(x-16,y+4); ctx.rotate(-0.9+wag);
+  ctx.beginPath(); ctx.ellipse(0,-8,4,11,0,0,Math.PI*2);
+  ctx.fillStyle=cd; ctx.fill(); ctx.restore();
+
+  // Back legs
+  ctx.fillStyle=cd;
+  ctx.beginPath(); ctx.roundRect(x-16,y+12,8,15,4); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(x-7, y+12,8,15,4); ctx.fill();
+
+  // Body
+  ctx.beginPath(); ctx.ellipse(x,y+8,20,12,0,0,Math.PI*2);
+  ctx.fillStyle=c; ctx.fill();
+
+  // Front legs
+  ctx.fillStyle=cd;
+  ctx.beginPath(); ctx.roundRect(x+5, y+12,8,15,4); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(x+14,y+12,8,15,4); ctx.fill();
+
+  // Neck
+  ctx.beginPath(); ctx.ellipse(x+16,y+2,9,10,-0.3,0,Math.PI*2);
+  ctx.fillStyle=c; ctx.fill();
+
+  // Head
+  ctx.beginPath(); ctx.arc(x+22,y-6,11,0,Math.PI*2);
+  ctx.fillStyle=c; ctx.fill();
+
+  // Ear
+  ctx.save(); ctx.translate(x+17,y-12); ctx.rotate(0.2);
+  ctx.beginPath(); ctx.ellipse(0,0,5,9,0,0,Math.PI*2);
+  ctx.fillStyle=cd; ctx.fill(); ctx.restore();
+
+  // Snout
+  ctx.beginPath(); ctx.ellipse(x+31,y-4,7,5,0,0,Math.PI*2);
+  ctx.fillStyle='#dda060'; ctx.fill();
+
+  // Nose
+  ctx.beginPath(); ctx.ellipse(x+36,y-5,3,2,0,0,Math.PI*2);
+  ctx.fillStyle='#222'; ctx.fill();
+
+  // Eye
+  ctx.beginPath(); ctx.arc(x+24,y-9,3,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill();
+  ctx.beginPath(); ctx.arc(x+25,y-9,1.8,0,Math.PI*2); ctx.fillStyle='#111'; ctx.fill();
+
+  ctx.restore();
+}
+
+function drawBall() {
+  ctx.beginPath(); ctx.ellipse(ball.x+4,ball.y+6,ball.r*0.9,ball.r*0.5,0,0,Math.PI*2);
+  ctx.fillStyle='rgba(0,0,0,0.15)'; ctx.fill();
+  const grad=ctx.createRadialGradient(ball.x-6,ball.y-6,2,ball.x,ball.y,ball.r);
+  grad.addColorStop(0,'#ffee88'); grad.addColorStop(1,'#d4a000');
+  ctx.beginPath(); ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);
+  ctx.fillStyle=grad; ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,0.55)'; ctx.lineWidth=2.5;
+  ctx.beginPath(); ctx.arc(ball.x,ball.y,ball.r*0.6,0.2,Math.PI-0.2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(ball.x,ball.y,ball.r*0.6,Math.PI+0.2,-0.2); ctx.stroke();
+}
+
+function drawBonusBalls() {
+  bonusBalls.forEach(b => {
+    const pulse=1+Math.sin(b.pulse)*0.2;
+    ctx.beginPath(); ctx.arc(b.x,b.y,b.r*pulse*1.8,0,Math.PI*2);
+    ctx.fillStyle='rgba(100,200,60,0.2)'; ctx.fill();
+    const grad=ctx.createRadialGradient(b.x-3,b.y-3,1,b.x,b.y,b.r*pulse);
+    grad.addColorStop(0,'#90ee60'); grad.addColorStop(1,'#2a9a00');
+    ctx.beginPath(); ctx.arc(b.x,b.y,b.r*pulse,0,Math.PI*2);
+    ctx.fillStyle=grad; ctx.fill();
+    ctx.strokeStyle='#1a6a00'; ctx.lineWidth=1.5; ctx.stroke();
+  });
+}
+
+function drawTraps() {
+  const now = Date.now();
+  traps.forEach(t => {
+    // Trap base
+    ctx.save();
+    ctx.translate(t.x, t.y);
+    // Glow if dog is near
+    const nearDog = Math.hypot(dog.x - t.x, dog.y - t.y) < 80;
+    if (nearDog) {
+      ctx.beginPath(); ctx.arc(0, 0, 28, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(255,180,0,0.25)'; ctx.fill();
+    }
+    // Draw trap emoji-style with canvas
+    ctx.font = '28px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🪤', 0, 0);
+    ctx.restore();
+  });
+  // Draw stuck indicator on dog
+  if (Date.now() < dogStuckUntil) {
+    const remaining = ((dogStuckUntil - Date.now()) / 1000).toFixed(1);
+    ctx.save();
+    ctx.font = 'bold 14px Nunito';
+    ctx.fillStyle = '#ff6600';
+    ctx.textAlign = 'center';
+    ctx.fillText('😵 ' + remaining + 's', dog.x, dog.y - 45);
+    ctx.restore();
+  }
+}
+
+function drawFrame() { drawGrass(); drawTraps(); drawBonusBalls(); drawBall(); drawDog(); }
+
+function gameLoop() {
+  if (!gameRunning) return;
+  update(); drawFrame();
+  animFrame = requestAnimationFrame(gameLoop);
+}
+
+function startGame() {
+  document.getElementById('menu').style.display='none';
+  document.getElementById('gameover').style.display='none';
+  document.getElementById('hud').style.display='flex';
+  gameRunning=true; initGame();
+  if (difficulty === 'freeplay') {
+    document.getElementById('time-val').textContent = '∞';
+  } else {
+    timerInterval = setInterval(()=>{
+      timeLeft--;
+      document.getElementById('time-val').textContent=timeLeft;
+      if(timeLeft<=0) endGame(true);
+    },1000);
+  }
+  cancelAnimationFrame(animFrame);
+  gameLoop();
+}
+
+function endGame(survived) {
+  gameRunning=false; clearInterval(timerInterval); cancelAnimationFrame(animFrame);
+  document.getElementById('hud').style.display='none';
+  document.getElementById('go-title').textContent = survived?'🎉 You Win!':'🐕 Caught!';
+  document.getElementById('go-emoji').textContent = survived?'🏆':'🐕💨🟢';
+  document.getElementById('final-score').textContent = score;
+  if(survived){ trophies[difficulty]++; renderTrophies(); }
+  document.getElementById('gameover').style.display='flex';
+  if(!survived){
+    const flash=document.getElementById('caught-flash');
+    flash.style.opacity='1'; setTimeout(()=>flash.style.opacity='0',300);
+  }
+  drawFrame();
+}
+
+document.querySelectorAll('.diff-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.diff-btn').forEach(b=>b.classList.remove('selected'));
+    btn.classList.add('selected'); difficulty=btn.dataset.d;
+  });
+});
+document.getElementById('start-btn').addEventListener('click', startGame);
+document.getElementById('restart-btn').addEventListener('click',()=>{
+  document.getElementById('gameover').style.display='none';
+  document.getElementById('menu').style.display='flex';
+});
+
+resize(); drawGrass(); renderTrophies();
+</script>
+</body>
+</html>
