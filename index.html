@@ -226,7 +226,7 @@
   </div>
   <button id="close-cabinet">← Back</button>
 </div>
-<div id="hud">🟢 Score: <span id="score-val">0</span> &nbsp;|&nbsp; ⏱ <span id="time-val">60</span>s &nbsp;|&nbsp; 🐕 <span id="diff-val">Medium</span> &nbsp;|&nbsp; 🪤 <span id="trap-val">0</span></div>
+<div id="hud">🟢 Score: <span id="score-val">0</span> &nbsp;|&nbsp; 🎯 <span id="goal-val">40</span> &nbsp;|&nbsp; ⏱ <span id="time-val">60</span>s &nbsp;|&nbsp; 🐕 <span id="diff-val">Medium</span> &nbsp;|&nbsp; 🪤 <span id="trap-val">0</span></div>
 <div id="caught-flash"></div>
 
 <div id="gameover">
@@ -246,12 +246,12 @@ resize();
 window.addEventListener('resize', resize);
 
 const DIFFS = {
-  veryeasy: { speed: 0.9, catchDist: 18, time: 120, bonusBalls: 3 },
-  easy:     { speed: 1.8, catchDist: 18, time: 90,  bonusBalls: 3 },
-  medium:   { speed: 2.8, catchDist: 18, time: 60,  bonusBalls: 4 },
-  hard:     { speed: 4.2, catchDist: 18, time: 45,  bonusBalls: 5 },
-  insane:   { speed: 7.0, catchDist: 18, time: 30,  bonusBalls: 6 },
-  freeplay: { speed: 2.0, catchDist: 18, time: null, bonusBalls: 4 },
+  veryeasy: { speed: 0.9, catchDist: 18, time: 60, bonusBalls: 3, winScore: 40 },
+  easy:     { speed: 1.8, catchDist: 18, time: 60, bonusBalls: 3, winScore: 40 },
+  medium:   { speed: 2.8, catchDist: 18, time: 60, bonusBalls: 4, winScore: 40 },
+  hard:     { speed: 4.2, catchDist: 18, time: 60, bonusBalls: 5, winScore: 30 },
+  insane:   { speed: 7.0, catchDist: 18, time: 60, bonusBalls: 6, winScore: 20 },
+  freeplay: { speed: 2.0, catchDist: 18, time: null, bonusBalls: 4, winScore: null },
 };
 
 let difficulty = 'medium';
@@ -300,6 +300,7 @@ function initGame() {
   document.getElementById('trap-val').textContent = '0';
   document.getElementById('time-val').textContent = difficulty === 'freeplay' ? '∞' : timeLeft;
   document.getElementById('diff-val').textContent = difficulty.charAt(0).toUpperCase()+difficulty.slice(1);
+  document.getElementById('goal-val').textContent = DIFFS[difficulty].winScore || '∞';
 }
 
 function spawnBonus() {
@@ -521,19 +522,31 @@ function startGame() {
   } else {
     timerInterval = setInterval(()=>{
       timeLeft--;
-      document.getElementById('time-val').textContent=timeLeft;
-      if(timeLeft<=0) endGame(true);
-    },1000);
+      document.getElementById('time-val').textContent = timeLeft;
+      if (timeLeft <= 0) {
+        const winScore = DIFFS[difficulty].winScore;
+        if (score >= winScore) endGame(true);
+        else endGame(false);
+      }
+    }, 1000);
   }
   cancelAnimationFrame(animFrame);
   gameLoop();
 }
 
-function endGame(survived) {
+function endGame(survived, timeoutLoss = false) {
   gameRunning=false; clearInterval(timerInterval); cancelAnimationFrame(animFrame);
   document.getElementById('hud').style.display='none';
-  document.getElementById('go-title').textContent = survived?'🎉 You Win!':'🐕 Caught!';
-  document.getElementById('go-emoji').textContent = survived?'🏆':'🐕💨🟢';
+  if (survived) {
+    document.getElementById('go-title').textContent = '🎉 You Win!';
+    document.getElementById('go-emoji').textContent = '🏆';
+  } else if (timeoutLoss) {
+    document.getElementById('go-title').textContent = '⏱ Not Enough Points!';
+    document.getElementById('go-emoji').textContent = '😞';
+  } else {
+    document.getElementById('go-title').textContent = '🐕 Caught!';
+    document.getElementById('go-emoji').textContent = '🐕💨🟢';
+  }
   document.getElementById('final-score').textContent = score;
   if(survived){ trophies[difficulty]++; renderTrophies(); }
   document.getElementById('gameover').style.display='flex';
